@@ -1,0 +1,158 @@
+#+title: parallel-path
+#+author: Michael Graham
+
+Navigate between mirrored directory trees — test ↔ implementation, git worktrees,
+or any two parallel structures.
+
+* Why
+
+Projectile's ~projectile-toggle-between-implementation-and-test~ works for file
+buffers but not dired.  parallel-path fills that gap and generalises the pattern:
+any two parallel directory trees can be toggled, not just test/impl pairs.
+
+* Installation
+
+#+begin_src emacs-lisp
+(use-package parallel-path
+  :load-path "~/path/to/parallel-path")
+
+;; Optional: projectile integration
+(use-package parallel-path-projectile
+  :load-path "~/path/to/parallel-path"
+  :after (parallel-path projectile))
+#+end_src
+
+* Usage
+
+** Toggle test ↔ implementation (standalone, no projectile)
+
+Works in both file buffers and dired buffers.
+
+#+begin_src emacs-lisp
+;; Bind a named command for the :test profile
+(keymap-set global-map "C-c t" (parallel-path-bind #'parallel-path-toggle :test))
+
+;; Auto-detect which profile applies, fall back to completing-read
+(keymap-set global-map "C-c T" #'parallel-path-toggle-auto)
+#+end_src
+
+| Buffer | Result |
+|--------|--------|
+| ~app/models/user.rb~ | opens ~spec/models/user_spec.rb~ |
+| ~spec/models/user_spec.rb~ | opens ~app/models/user.rb~ |
+| dired: ~app/models/~ | dired: ~spec/models/~ |
+| ~lib/foo.rb~ | opens ~spec/lib/foo_spec.rb~ (asymmetric rule) |
+
+** Toggle test ↔ implementation (projectile-aware)
+
+Uses projectile's project-type mapping (handles all registered project types,
+custom suffixes/prefixes, and ~:file-kinds~ definitions).  Extends it to dired.
+
+#+begin_src emacs-lisp
+(keymap-set global-map "C-c t" #'parallel-path-projectile-toggle-test)
+#+end_src
+
+** Switch between arbitrary parallel trees
+
+No profile needed.  Supply the source and target roots explicitly.
+
+#+begin_src emacs-lisp
+;; Worktree jump (hardcoded roots)
+(keymap-set global-map "C-c w"
+  (lambda () (interactive)
+    (parallel-path-to-root "~/Projects/acme/main"
+                           "~/Projects/acme/feature-x")))
+#+end_src
+
+Or interactively: ~M-x parallel-path-to-root~ prompts for both roots.
+
+** Switch worktrees via completing-read (projectile)
+
+Discovers all git worktrees for the current project automatically.
+
+#+begin_src emacs-lisp
+(keymap-set global-map "C-c w" #'parallel-path-projectile-switch-worktree)
+#+end_src
+
+~C-c w~ from ~~/Projects/acme/main/src/util.el~:
+- completing-read: ~~/Projects/acme/feature-x  [feature-x]~ / ~~/Projects/acme/hotfix  [hotfix]~
+- opens ~~/Projects/acme/feature-x/src/util.el~
+
+* Configuration
+
+** Profiles
+
+Profiles are the unit of configuration for named toggles.
+
+#+begin_src emacs-lisp
+(defcustom parallel-path-profiles
+  '((:name :test
+     :directory-mappings (("/lib/"  . "/spec/lib/")
+                          ("/app/"  . "/spec/"))
+     :name-patterns      (("%s_spec" . "%s")
+                          ("%s_test" . "%s")
+                          ("test_%s" . "%s")
+                          ("%s.test" . "%s")
+                          ("%s.spec" . "%s")
+                          ("%s-test" . "%s"))))
+  ...)
+#+end_src
+
+Add further profiles with ~add-to-list~:
+
+#+begin_src emacs-lisp
+;; Rails models <-> views (directory remap only)
+(add-to-list 'parallel-path-profiles
+  '(:name :views
+    :directory-mappings (("/app/models/"      . "/app/views/")
+                         ("/app/controllers/" . "/app/views/")))
+  t)
+
+(keymap-set global-map "C-c v" (parallel-path-bind #'parallel-path-toggle :views))
+#+end_src
+
+*** Profile keys
+
+| Key | Description |
+|-----|-------------|
+| ~:name~ | Keyword identifier, e.g. ~:test~, ~:views~ |
+| ~:directory-mappings~ | Alist of ~(A-FRAGMENT . B-FRAGMENT)~, tried in order |
+| ~:name-patterns~ | Alist of ~(TEST-FMT . IMPL-FMT)~ using ~%s~ as placeholder; omit for directory-only profiles |
+
+*** Directory mapping order matters
+
+Put more-specific rules before less-specific ones.  The default ~:test~ profile
+puts ~"/lib/" → "/spec/lib/"~ before ~"/app/" → "/spec/"~ so that ~lib/~ files
+land in ~spec/lib/~, not ~spec/~.
+
+** ~parallel-path-bind~
+
+Creates a named interactive command for use with ~keymap-set~.  The interned
+symbol name means which-key shows a meaningful description.
+
+#+begin_src emacs-lisp
+(parallel-path-bind #'parallel-path-toggle :test)
+;; => interns and returns 'parallel-path-toggle-test
+
+(parallel-path-bind #'parallel-path-toggle :views)
+;; => interns and returns 'parallel-path-toggle-views
+
+(parallel-path-bind #'parallel-path-toggle-auto)
+;; => returns 'parallel-path-toggle-auto unchanged (no-op, already named)
+#+end_src
+
+** Window placement
+
+parallel-path uses ~find-file~ / ~dired~ (current window) or
+~find-file-other-window~ / ~dired-other-window~ (other window).  Further
+routing — e.g. directing output into an existing dired window — is handled
+by ~display-buffer-alist~ and is outside the scope of this package.
+
+* Dependencies
+
+| Dependency | Required by |
+|------------|-------------|
+| Emacs 29.1+ | both files |
+| [[https://github.com/bbatsov/projectile][projectile]] | ~parallel-path-projectile.el~ only |
+
+~parallel-path.el~ has no external dependencies.
