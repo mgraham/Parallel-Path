@@ -5,7 +5,7 @@
 Two files. No coupling between them beyond a `require`.
 
 ```
-parallel-path.el              — core, zero external dependencies
+parallel-path.el             — core, zero external dependencies
 parallel-path-projectile.el  — optional projectile integration
 test/parallel-path-test.el   — ERT tests (batch-safe, core only)
 ```

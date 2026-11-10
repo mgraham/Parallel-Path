@@ -22,6 +22,11 @@ any two parallel directory trees can be toggled, not just test/impl pairs.
   :after (parallel-path projectile))
 #+end_src
 
+It's fine to mix and match functions from each.  Personally, I use the
+projectile functions for worktrees, and the plain parallel-path
+functions for everything else - including toggling between tests and
+their implementations.
+
 * Usage
 
 ** Toggle test ↔ implementation (standalone, no projectile)
@@ -36,12 +41,12 @@ Works in both file buffers and dired buffers.
 (keymap-set global-map "C-c T" #'parallel-path-toggle-auto)
 #+end_src
 
-| Buffer | Result |
-|--------|--------|
-| ~app/models/user.rb~ | opens ~spec/models/user_spec.rb~ |
-| ~spec/models/user_spec.rb~ | opens ~app/models/user.rb~ |
-| dired: ~app/models/~ | dired: ~spec/models/~ |
-| ~lib/foo.rb~ | opens ~spec/lib/foo_spec.rb~ (asymmetric rule) |
+| Buffer                   | Result                                       |
+|--------------------------+----------------------------------------------|
+| ~app/models/user.rb~       | opens ~spec/models/user_spec.rb~               |
+| ~spec/models/user_spec.rb~ | opens ~app/models/user.rb~                     |
+| dired: ~app/models/~       | dired: ~spec/models/~                          |
+| ~lib/foo.rb~               | opens ~spec/lib/foo_spec.rb~ (asymmetric rule) |
 
 ** Toggle test ↔ implementation (projectile-aware)
 
@@ -75,8 +80,10 @@ Discovers all git worktrees for the current project automatically.
 #+end_src
 
 ~C-c w~ from ~~/Projects/acme/main/src/util.el~:
-- completing-read: ~~/Projects/acme/feature-x  [feature-x]~ / ~~/Projects/acme/hotfix  [hotfix]~
-- opens ~~/Projects/acme/feature-x/src/util.el~
+- completing-read:
+  - ~~/Projects/acme/feature-x  [feature-x]~
+  - ~~/Projects/acme/hotfix     [hotfix]~
+- after selecting ~feature-x~, opens ~~/Projects/acme/feature-x/src/util.el~
 
 * Configuration
 
@@ -113,11 +120,11 @@ Add further profiles with ~add-to-list~:
 
 *** Profile keys
 
-| Key | Description |
-|-----|-------------|
-| ~:name~ | Keyword identifier, e.g. ~:test~, ~:views~ |
-| ~:directory-mappings~ | Alist of ~(A-FRAGMENT . B-FRAGMENT)~, tried in order |
-| ~:name-patterns~ | Alist of ~(TEST-FMT . IMPL-FMT)~ using ~%s~ as placeholder; omit for directory-only profiles |
+| Key                 | Description                                                                              |
+|---------------------+------------------------------------------------------------------------------------------|
+| ~:name~               | Keyword identifier, e.g. ~:test~, ~:views~                                                   |
+| ~:directory-mappings~ | Alist of ~(A-FRAGMENT . B-FRAGMENT)~, tried in order                                       |
+| ~:name-patterns~      | Alist of ~(TEST-FMT . IMPL-FMT)~ using ~%s~ as placeholder; omit for directory-only profiles |
 
 *** Directory mapping order matters
 
@@ -132,27 +139,36 @@ symbol name means which-key shows a meaningful description.
 
 #+begin_src emacs-lisp
 (parallel-path-bind #'parallel-path-toggle :test)
-;; => interns and returns 'parallel-path-toggle-test
+;; => creates and returns 'parallel-path-toggle-test
 
 (parallel-path-bind #'parallel-path-toggle :views)
-;; => interns and returns 'parallel-path-toggle-views
+;; => creates and returns 'parallel-path-toggle-views
 
 (parallel-path-bind #'parallel-path-toggle-auto)
 ;; => returns 'parallel-path-toggle-auto unchanged (no-op, already named)
 #+end_src
 
-** Window placement
+** parallel-path-toggle-auto
 
+Toggles between current file/directory and its parallel, guessing at what the parallel directory starts.
+
+It tries each profile in `parallel-path-profiles` in order, uses the first one whose directory mappings match the current path AND whose computed counterpart exists on disk.
+
+Falls back to `completing-read' when no profile produces a match.
+
+* Window placement
 parallel-path uses ~find-file~ / ~dired~ (current window) or
-~find-file-other-window~ / ~dired-other-window~ (other window).  Further
-routing — e.g. directing output into an existing dired window — is handled
-by ~display-buffer-alist~ and is outside the scope of this package.
+~find-file-other-window~ / ~dired-other-window~ (other window).
+
+Further routing — e.g. directing output into an existing or new dired
+window — is handled by ~display-buffer-alist~ or packages like
+[[https://github.com/MArpogaus/auto-side-windows][auto-side-windows]], [[https://depp.brause.cc/shackle/][Shackle]], or [[https://github.com/mgraham/Shadowboard][Shadowboard]]
 
 * Dependencies
 
-| Dependency | Required by |
-|------------|-------------|
-| Emacs 29.1+ | both files |
-| [[https://github.com/bbatsov/projectile][projectile]] | ~parallel-path-projectile.el~ only |
+| Dependency  | Required by                      |
+|-------------+----------------------------------|
+| Emacs 29.1+ | both files                       |
+| [[https://github.com/bbatsov/projectile][projectile]]  | ~parallel-path-projectile.el~ only |
 
 ~parallel-path.el~ has no external dependencies.
